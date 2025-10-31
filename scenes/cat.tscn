@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://c326e1x7om6m4"]
+
+[ext_resource type="PackedScene" uid="uid://7r5j6xjv8ne2" path="res://assets/cat.glb" id="1_myi5k"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_yqjtg"]
+absorbent = true
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lnu2h"]
+radius = 0.32470703
+height = 0.64941406
+
+[node name="Cat" type="RigidBody3D"]
+mass = 10.0
+physics_material_override = SubResource("PhysicsMaterial_yqjtg")
+linear_damp = 2.0
+angular_damp = 2.0
+
+[node name="cat" parent="." instance=ExtResource("1_myi5k")]
+transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0, 0, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.007068634, 0)
+shape = SubResource("CapsuleShape3D_lnu2h")

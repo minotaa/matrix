@@ -1,0 +1,60 @@
+[gd_scene load_steps=5 format=3 uid="uid://sougpqnrhqjx"]
+
+[ext_resource type="Script" uid="uid://bk1empq4v4ihi" path="res://scripts/player.gd" id="1_uwrxv"]
+[ext_resource type="PackedScene" uid="uid://c326e1x7om6m4" path="res://scenes/cat.tscn" id="2_yqjtg"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_yqjtg"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_uwrxv"]
+font_size = 48
+
+[node name="Node3D" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 11.179637, 0)
+shadow_enabled = true
+
+[node name="Player" type="CharacterBody3D" parent="."]
+script = ExtResource("1_uwrxv")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+shape = SubResource("CapsuleShape3D_yqjtg")
+debug_color = Color(0, 0.6, 0.69803923, 0.8784314)
+
+[node name="Camera3D" type="Camera3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.50516903, 0)
+fov = 90.0
+
+[node name="UI" type="CanvasLayer" parent="Player"]
+
+[node name="Main" type="Control" parent="Player/UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Player/UI/Main"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -144.0
+offset_right = 448.0
+offset_bottom = -24.0
+grow_vertical = 0
+
+[node name="Label" type="Label" parent="Player/UI/Main/HBoxContainer"]
+layout_mode = 2
+text = "blah blah blah blah whatever"
+label_settings = SubResource("LabelSettings_uwrxv")
+
+[node name="CSGBox3D" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.5, -1.7115016, 0.09863281)
+use_collision = true
+size = Vector3(62, 1, 18)
+
+[node name="Cat" parent="." instance=ExtResource("2_yqjtg")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8895178, 0.25507462, -2.8196)
