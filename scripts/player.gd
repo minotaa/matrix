@@ -19,12 +19,27 @@ const BOUNCE_MULTIPLIER = 1.2
 const SPIN_TORQUE = 5.0
 const LAUNCH_FORCE = 8.0
 
+# Viewmodel sway parameters
+const WALK_BOB_SPEED = 12.0
+const WALK_BOB_AMOUNT = 0.03
+const WALK_SWAY_AMOUNT = 0.02
+const MOUSE_SWAY_AMOUNT = 0.0015
+const TILT_AMOUNT = 0.002
+const SWAY_SMOOTHING = 12.0
+
 @onready var camera = $Camera3D
 var camera_rotation = Vector2.ZERO
 var last_velocity = Vector3.ZERO
+var previous_velocity = Vector3.ZERO
+var viewmodel_initial_position = Vector3.ZERO
+var viewmodel_initial_rotation = Vector3.ZERO
+var bob_time = 0.0
+var mouse_sway = Vector2.ZERO
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	viewmodel_initial_position = $Camera3D/cat2.position
+	viewmodel_initial_rotation = $Camera3D/cat2.rotation
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -34,13 +49,20 @@ func _input(event: InputEvent) -> void:
 		
 		camera.rotation.x = camera_rotation.x
 		rotation.y = camera_rotation.y
-	
+		
+		# Smooth mouse sway
+		mouse_sway.x += event.relative.x * MOUSE_SWAY_AMOUNT
+		mouse_sway.y += event.relative.y * MOUSE_SWAY_AMOUNT
+
 	# Toggle mouse capture
 	if event.is_action_pressed("ui_cancel"):
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		else:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+var is_squashing = false
+var squash_phase = 0
 
 func _physics_process(delta: float) -> void:
 	var input_dir = Input.get_vector("left", "right", "forward", "backward")
@@ -53,10 +75,27 @@ func _physics_process(delta: float) -> void:
 		velocity += get_gravity() * delta
 	
 	if Input.is_action_pressed("lol"):
-		var cat = preload("res://scenes/cat.tscn").instantiate()
-		get_parent().add_child(cat)
+		var cat_scene = preload("res://scenes/cat.tscn").instantiate()
+		get_parent().add_child(cat_scene)
 		
-	
+		is_squashing = true
+		squash_phase = 1
+
+	var current_value = camera.get_node("cat2/Cube").get_blend_shape_value(0)
+
+	if squash_phase == 1:  # Squashing down
+		if current_value < 1.0:
+			camera.get_node("cat2/Cube").set_blend_shape_value(0, current_value + (delta * 6))
+		else:
+			squash_phase = 2  # Start unsquashing
+
+	elif squash_phase == 2:  # Unsquashing back
+		if current_value > 0.0:
+			camera.get_node("cat2/Cube").set_blend_shape_value(0, current_value - (delta * 3))
+		else:
+			squash_phase = 0  # Done
+			is_squashing = false
+			
 	# Handle jump
 	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
@@ -66,6 +105,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		air_move(wish_dir, delta)
 	
+	previous_velocity = last_velocity
 	last_velocity = velocity
 	move_and_slide()
 	
@@ -73,6 +113,48 @@ func _physics_process(delta: float) -> void:
 	
 	# Handle collisions with RigidBody3D objects
 	handle_rigidbody_collisions()
+	
+	# Update viewmodel movement
+	update_viewmodel_sway(delta)
+
+func update_viewmodel_sway(delta: float) -> void:	
+	# Calculate movement speed
+	var horizontal_velocity = Vector2(velocity.x, velocity.z).length()
+	var move_factor = clamp(horizontal_velocity / GROUND_SPEED, 0.0, 1.0)
+	
+	# Continuous walking bob
+	var target_offset = Vector3.ZERO
+	var target_rotation = Vector3.ZERO
+	
+	if is_on_floor() and horizontal_velocity > 0.1:
+		bob_time += delta * WALK_BOB_SPEED * move_factor
+		
+		# Smooth sine wave bob
+		target_offset.y = sin(bob_time) * WALK_BOB_AMOUNT * move_factor
+		target_offset.x = cos(bob_time * 0.5) * WALK_SWAY_AMOUNT * move_factor
+		
+		# Subtle tilt while walking
+		target_rotation.z = cos(bob_time * 0.5) * TILT_AMOUNT * move_factor
+		target_rotation.x = sin(bob_time) * TILT_AMOUNT * 0.5 * move_factor
+	
+	# Add mouse look sway
+	target_offset.x -= mouse_sway.x
+	target_offset.y -= mouse_sway.y
+	target_rotation.z -= mouse_sway.x * 0.5
+	target_rotation.x += mouse_sway.y * 0.5
+	
+	# Smooth interpolation
+	$Camera3D/cat2.position = $Camera3D/cat2.position.lerp(
+		viewmodel_initial_position + target_offset,
+		delta * SWAY_SMOOTHING
+	)
+	$Camera3D/cat2.rotation = $Camera3D/cat2.rotation.lerp(
+		viewmodel_initial_rotation + target_rotation,
+		delta * SWAY_SMOOTHING
+	)
+	
+	# Decay mouse sway smoothly
+	mouse_sway = mouse_sway.lerp(Vector2.ZERO, delta * 8.0)
 
 func handle_rigidbody_collisions() -> void:
 	for i in range(get_slide_collision_count()):
@@ -105,7 +187,7 @@ func handle_rigidbody_collisions() -> void:
 func ground_move(wish_dir: Vector3, sprinting: bool, delta: float) -> void:
 	var speed = Vector3(velocity.x, 0, velocity.z).length()
 	
-	if speed > 0.1:
+	if speed > 0.0:
 		var control = max(speed, STOP_SPEED)
 		var drop = control * FRICTION * delta
 		var new_speed = max(speed - drop, 0)
